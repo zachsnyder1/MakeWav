@@ -1,0 +1,20 @@
+MakeWav
+=======
+
+OVERVIEW
+
+This is a program that writes a .wav file (following the RIFF specification)
+and allows you to fill the file with audio data created through wavetable
+synthesis.  After it is created, the file should be playable by any standard
+audio player (i.e. iTunes).
+
+
+CURRENT CAPABILITIES
+
+Right now the program writes a file named 'sine.wav' that plays a sine wave
+with a frequency of 100 Hz for 10 seconds.  It does not take any user input,
+but I will be expanding the funtionality of the program soon.
+
+NOTE:  The first half second or so of the file contains distortion,
+       which is undesirable and puzzling, but probably not damaging
+       to speakers.  I'll try to fix this.
