@@ -267,7 +267,7 @@ class Wav
 		if ($TABLE_SIZE.to_f).modulo(adjusted_incrementer) == 0.0
 			@samples_per_dataBlock = ($TABLE_SIZE.to_f / adjusted_incrementer).to_i
 		else
-		    @samples_per_dataBlock = (($TABLE_SIZE.to_f / adjusted_incrementer).truncate) + 1
+		    @samples_per_dataBlock = (($TABLE_SIZE.to_f / adjusted_incrementer).truncate)
 		end
 		# reset table positions to 0.0
 		@tablePosition_L = 0.0
@@ -344,25 +344,266 @@ class WaveTable
 		end
 	end
 
-	# write a custom wave to the wavetable
+	# write a pseudo-square wave to the wavetable
+	def self.square()
+		# check that $TABLE_SIZE is an even number, if not
+		if $TABLE_SIZE % 2 != 0
+			print "\n\tERROR: $TABLE_SIZE needs to be an even integer to "
+			print "make a square wave\n"
+			return
+		end
+		# put a square wave in the wavetable
+		for i in (0...$TABLE_SIZE)
+			if i < ($TABLE_SIZE / 2)
+				$waveTable[i] = 0.15
+			else
+				$waveTable[i] = -0.15
+			end
+		end
+	end
+
+	# write a custom wave to the wavetable (must write a sine wave first,
+	# or a null table will be created)
 	def self.custom()
-		# I STILL NEED TO WRITE THIS...
+		# initialize the array to hold the amplitudes of the harmonics
+		harmonic_amplitudes = Array.new(32, nil)
+		command_check = nil
+		# print info to terminal
+		print "\n\t\t ---- SYNTHESIZE A CUSTOM TIMBRE ----\n\n"
+		print "type 'z' and hit RETURN for custom synthesis info\n"
+		print "type 's' and hit RETURN to synthesize timbre with current parameters\n"
+		print "type 'x' and hit RETURN to abort program\n\n"
+		print "Enter amplitude of each harmonic:"
+		# loop gets harmonic amplitude info
+		for x in (0...32)
+			# prompt for harmonic amplitude info
+			if x == 0
+				print "\n  Fundamental: "
+				command_check = STDIN.gets.chomp
+			else
+				print "  Harmonic #{x}: "
+				command_check = STDIN.gets.chomp
+			end
+
+			# command is processed
+			if command_check == 'z'
+				print "\n\nINFO:\n\n"
+				print "The 'synthesize custom timbre' function allows you to synthesize a new sound by"
+				print "\nsetting the relative amplitude for each harmonic, up to the 31st harmonic."
+				print "\nRelative amplitudes are values between 0 and 100.  Enter a value for each"
+				print "\nharmonic as you are promted.  A value of 0 means the harmonic is not"
+				print "\nincluded in the sound.  When you have entered a value for the highest"
+				print "\nharmonic that you want to include, enter 's' (without quotations) to"
+				print "\nsynthesize the sound.\n\n", "  LOCAL COMMANDS:\n"
+				print "  --------------\n", "    z   --->  Print custom synthesis info\n"
+				print "    s   --->  Synthesize waveform\n", "    x   --->  Abort program\n"
+				redo
+			elsif command_check == 'x'
+				puts "PROGRAM ABORTED"
+				exit()
+			elsif command_check == 's' && x == 0
+				print "\n\tERROR: Enter amplitude for one or more frequency\n"
+				redo
+			elsif command_check == 's'
+				x = 32
+				break
+			elsif command_check.to_i > 100
+				print "\n\tERROR: Amplitude needs to be 0<=X<=100\n\n"
+				redo
+			else
+				harmonic_amplitudes[x] = command_check.to_i
+			end
+		end
+
+		# set up some more variables
+		addedAmps_scaling = 0
+		added_amplitudes = 0.0
+		temp_table = Array.new($TABLE_SIZE, 0.0)
+
+		# Overall amplitude of the synthesized waveform is scaled
+		# to avoid an arithmetic overflow.
+		for i in (0..32)
+			unless harmonic_amplitudes[i] == nil
+				addedAmps_scaling += harmonic_amplitudes[i]
+			end
+		end
+
+		# harmonics are added together, one wavetable index at a time
+		for i in (0...$TABLE_SIZE)
+			added_amplitudes = 0
+			for x in (0..32)
+				added_amplitudes += ((harmonic_amplitudes[x].to_f / 100.to_f) *
+					$waveTable[((x+1) * i) % $TABLE_SIZE]) /
+					(addedAmps_scaling.to_f / 100.to_f)
+			end
+			# added value is stored in a temporary table
+			temp_table[i] = added_amplitudes
+		end
+
+		# main wavetable is replaced with temp table
+		for i in (0...$TABLE_SIZE)
+			$waveTable[i] = temp_table[i]
+		end
 	end
 end
+
+class ProgramInit
+	# initiate some variables for command processing purposes
+	@command = nil
+	@loop_set = true
+	# initiate file creation parameters
+	@filename, @numChannels, @sampleRate, @bitsPerSample = nil, nil, nil, nil
+
+	def self.prompt_and_process()
+		print ">> "
+		@command = STDIN.gets.chomp
+		if @command == 'z'
+			# FILL THIS OUT
+			puts "INFO"
+			return -1
+		elsif @command == 'x'
+			puts "PROGRAM ABORTED"
+			exit()
+		else
+			return @command
+		end
+	end
+
+	def self.initialize_with_user_input()
+		# print program info
+		puts "\n\t  ---------------------------------------------------"
+		puts "\t  |               ---- MAKE WAV ----                |"
+		puts "\t  ---------------------------------------------------\n"
+		puts "type 'z' and hit RETURN for info"
+		puts "type 'x' and hit RETURN to abort program\n"
+		# prompt for timbre
+		puts "Choose timbre for wavetable:"
+		puts "  1) Sine wave"
+		puts "  2) Square wave"
+		puts "  3) Custom timbre"
+		# command processing loop...
+		while @loop_set do
+			@command = self.prompt_and_process()
+			if @command == -1
+				next
+			else
+				@loop_set = false
+				if @command.to_i == 1
+					puts "Creating sine wave..."
+					WaveTable.sine
+				elsif @command.to_i == 2
+					puts "Creating square wave..."
+					WaveTable.square
+				elsif @command.to_i == 3
+					WaveTable.sine
+					WaveTable.custom
+				else
+					puts "\tERROR: Please enter 1, 2, or 3"
+					@loop_set = 1
+				end
+			end
+		end
+		# prompt for file name
+		puts "What do you want to call the .wav file? (must end with '.wav')"
+		# command processing loop...
+		@loop_set = true
+		while @loop_set do
+			@command = self.prompt_and_process()
+			if @command == -1
+				next
+			else
+				@filename = @command.to_s
+				@loop_set = false
+			end
+		end
+		# prompt for number of channels
+		puts "Will #{@filename} be mono or stereo?"
+		puts "  1) Mono"
+		puts "  2) Stereo"
+		# command processing loop...
+		@loop_set = true
+		while @loop_set do
+			@command = self.prompt_and_process()
+			if @command == -1
+				next
+			else
+				@loop_set = false
+				if @command.to_i == 1 || @command.to_i == 2
+					@numChannels = @command.to_i
+				else
+					puts "\tERROR: Please enter 1 or 2"
+					@loop_set = 1
+				end
+			end
+		end
+		# prompt for sample rate
+		puts "Choose sample rate:"
+		puts "  1) 22050 Hz"
+		puts "  2) 32000 Hz"
+		puts "  3) 44100 Hz"
+		puts "  4) 48000 Hz"
+		# command processing loop...
+		@loop_set = true
+		while @loop_set do
+			@command = self.prompt_and_process()
+			if @command == -1
+				next
+			else
+				@loop_set = false
+				if @command.to_i == 1
+					@sampleRate = 22050
+				elsif @command.to_i == 2
+					@sampleRate = 32000
+				elsif @command.to_i == 3
+					@sampleRate = 44100
+				elsif @command.to_i == 4
+					@sampleRate = 48000
+				else
+					puts "\tERROR: Please enter 1, 2, 3, or 4"
+					@loop_set = 1
+				end
+			end
+		end
+		# prompt for bit depth
+		puts "Choose sample bit-depth:"
+		puts "  1) 16-bit"
+		puts "  2) 32-bit"
+		# command processing loop...
+		@loop_set = true
+		while @loop_set do
+			@command = self.prompt_and_process()
+			if @command == -1
+				next
+			else
+				@loop_set = false
+				if @command.to_i == 1
+					@bitsPerSample = 16
+				elsif @command.to_i == 2
+					@bitsPerSample = 32
+				else
+					puts "\tERROR: Please enter 1 or 2"
+					@loop_set = 1
+				end
+			end
+		end
+		# initialize a Wav object with user input
+		puts "CREATING #{Dir.pwd()}/#{@filename}  PLEASE WAIT..."
+		return Wav.new(@filename, @numChannels, @sampleRate, @bitsPerSample)
+	end
+end
+
 
 # ------------------------------------------------------------------------
 # |                          -- MAIN --                                  |
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
-# put a sine wave in the wavetable
-WaveTable.sine 
-# initialize a .wav file in which to put a sine wave
-wave = Wav.new('sine.wav')
+# initialize the program with user input prompts
+wave = ProgramInit.initialize_with_user_input
 # write the RIFF header info to the file
 wave.write_wav_header
 # create a one-period block of WAV data, using wavetable, that can be
 # repeatedly written to the file (much faster than calculating each sample
 # from it's floating point value)
-wave.compose_new_dataBlock(8.0)
+wave.compose_new_dataBlock(2.0)
 # repeatedly write the data block to the file until 10 seconds of sound
 # is recorded
 wave.write_dataBlock_to_file(10)

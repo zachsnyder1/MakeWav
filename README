@@ -11,10 +11,10 @@ audio player (i.e. iTunes).
 
 CURRENT CAPABILITIES
 
-Right now the program writes a file named 'sine.wav' that plays a sine wave
-with a frequency of 100 Hz for 10 seconds.  It does not take any user input,
-but I will be expanding the funtionality of the program soon.
+Right now the program provides the user with options for timbre, number of
+channels, sample rate, and bit-depth, and then writes a sound that plays at
+~110 Hz for 10 seconds based on those parameters.  It does not allow the user
+to set note duration or pitch, but I will be adding those capabilities soon.
 
 NOTE:  The first half second or so of the file contains distortion,
-       which is undesirable and puzzling, but probably not damaging
-       to speakers.  I'll try to fix this.
+       which is undesirable and puzzling.  I'm trying to fix this.
