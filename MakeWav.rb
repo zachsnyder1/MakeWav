@@ -214,9 +214,10 @@ class Wav
 		end
 	end
 
-# ------------------------------------------------------------------------
-# |                 METHODS INTENDED FOR USE IN 'MAIN':                   |
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+# |                       ...END INTERNAL METHODS                         |
+# ------------------------------------------------------------------------
+
 	# Every .wav file consists of an RIFF chunk-header (12 bytes), a
 	# 'fmt ' subchunk (24 bytes), and a 'data' subchunk that contains
 	# (8 bytes of info) + audio data.  THIS METHOD writes the RIFF/.wav
@@ -300,12 +301,12 @@ class Wav
 
 	# This method writes the dataBlock to file repeatedly, until (noteduration)
 	# seconds of audio signal have been written.  Input parameter is:
-	#   noteDuration == number of seconds (integer) of audio signal that will
+	#   miliseconds == number of seconds (integer) of audio signal that will
 	#                   be written as the waveform contained in the dataBlock
-	def write_dataBlock_to_file(noteDuration)
+	def write_dataBlock_to_file(miliseconds)
 		# calculate the number of dataBlocks to write to file
-		numBlocks_to_write = (noteDuration * @sampleRate /
-		    @samples_per_dataBlock)
+		numBlocks_to_write = (miliseconds.to_f * @sampleRate.to_f /
+		    @samples_per_dataBlock.to_f) / 1000.to_f
 		# calculate bytes per sample
 		if @bitsPerSample == 16
 			bytesPerSample = 2
@@ -313,7 +314,7 @@ class Wav
 			bytesPerSample = 4
 		end
 		# write the dataBlocks to file
-		for i in (0..numBlocks_to_write)
+		for i in (0..numBlocks_to_write.round)
 			# write binary to file with correct offset
 			File.write(@filename, @dataBlock_joined, @file_offset)
 			# increment offset for next method call
@@ -335,17 +336,16 @@ class Wav
 end
 
 # This class is used to write/rewrite the wavetable with a new waveform.
-# More to come...
 class WaveTable
 	# write a sine wave to the wavetable
-	def self.sine()
+	def self.sine
 		for i in (0...$TABLE_SIZE)
 			$waveTable[i] = Math.sin((i.to_f/$TABLE_SIZE.to_f) * Math::PI * 2.0)
 		end
 	end
 
 	# write a pseudo-square wave to the wavetable
-	def self.square()
+	def self.square
 		# check that $TABLE_SIZE is an even number, if not
 		if $TABLE_SIZE % 2 != 0
 			print "\n\tERROR: $TABLE_SIZE needs to be an even integer to "
@@ -364,7 +364,9 @@ class WaveTable
 
 	# write a custom wave to the wavetable (must write a sine wave first,
 	# or a null table will be created)
-	def self.custom()
+	def self.custom
+		# make sure wavetable is a sine waveform
+		self.sine
 		# initialize the array to hold the amplitudes of the harmonics
 		harmonic_amplitudes = Array.new(32, nil)
 		command_check = nil
@@ -387,7 +389,7 @@ class WaveTable
 
 			# command is processed
 			if command_check == 'z'
-				print "\n\nINFO:\n\n"
+				print "\n\nCUSTOM TIMBRE INFO:\n\n"
 				print "The 'synthesize custom timbre' function allows you to synthesize a new sound by"
 				print "\nsetting the relative amplitude for each harmonic, up to the 31st harmonic."
 				print "\nRelative amplitudes are values between 0 and 100.  Enter a value for each"
@@ -400,7 +402,7 @@ class WaveTable
 				redo
 			elsif command_check == 'x'
 				puts "PROGRAM ABORTED"
-				exit()
+				exit
 			elsif command_check == 's' && x == 0
 				print "\n\tERROR: Enter amplitude for one or more frequency\n"
 				redo
@@ -447,43 +449,139 @@ class WaveTable
 	end
 end
 
-class ProgramInit
-	# initiate some variables for command processing purposes
-	@command = nil
-	@loop_set = true
+# This class is used to initiate and run the program with user input.
+class UserInterface
+	# for producing prompt info:
+	@promptParameter = nil
+	# for command processing purposes:
+	@command = nil # holds an user command
+	@ui_section = nil # so self.process_local_commands prints correct info
+	@loop_set = true # for prompt loops
+	@write_melody = false # for 'melody creation' prompt loop
+	@octave = 3 # for pitch calculation in 'melody creation' loop
 	# initiate file creation parameters
 	@filename, @numChannels, @sampleRate, @bitsPerSample = nil, nil, nil, nil
 
-	def self.prompt_and_process()
+# ------------------------------------------------------------------------
+# |                 METHODS INTENDED FOR INTERNAL USE ONLY:               |
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+
+	# print prompt info, based on prompting parameter
+	def self.print_prompt
+		# print appropriate prompt info
+		if @promptParameter == 'timbre'
+			puts "Choose timbre for wavetable:"
+			puts "  1) Sine wave", "  2) Square wave", "  3) Custom timbre"
+		elsif @promptParameter == 'filename'
+			puts "What do you want to call the .wav file? (must end with '.wav')"
+		elsif @promptParameter == 'numChannels'
+			puts "Will #{@filename} be mono or stereo?", "  1) Mono", "  2) Stereo"
+		elsif @promptParameter == 'sampleRate'
+			puts "Choose sample rate for #{@filename}:", "  1) 22050 Hz"
+			puts "  2) 32000 Hz", "  3) 44100 Hz (recommended)", "  4) 48000 Hz"
+		elsif @promptParameter == 'bitsPerSample'
+			puts "Choose sample bit-depth for #{@filename}:"
+			puts "  1) 16-bit", "  2) 32-bit"
+		elsif @promptParameter == 'note'
+			print "Note: "
+			return
+		elsif @promptParameter == 'duration'
+			print " Its duration: "
+			return
+		elsif @promptParameter == 'tempo'
+			puts "Enter tempo in beats/min:"
+		end
+		# print the actual prompt
 		print ">> "
+	end
+
+	# actually prompts, processes info and abort commands, else returns command
+	# to self.initialize_with_user_input() method for processing
+	def self.process_local_commands
 		@command = STDIN.gets.chomp
-		if @command == 'z'
-			# FILL THIS OUT
-			puts "INFO"
+		if @command == 'z' and @ui_section == 'init'
+			print "\nMAKE WAV INFO:\n\n"
+			print "This program writes a .wav file (following the RIFF specification) and "
+			print "\nallows you to fill the file with audio data created through wavetable"
+			print "\nsynthesis.  After it is created, the file should be playable by any"
+			print "\nstandard audio player (e.g. iTunes)."
+			print "\n\n  WAV FILE PARAMETERS:\n  --------------------\n"
+			print "    'timbre' == The waveform that is used for wavetable synthesis.\n"
+			print "    'filename' == The name of the WAV file that will be created.  This\n"
+			print "                MUST end in the '.wav' file extension.\n"
+			print "    'number of channels' == One channel creates a mono file.  Two channels\n"
+			print "                            creates a stereo file.  These are functionally\n"
+			print "                            equivalent if both channels contain the same info,\n"
+			print "                            but the stereo file will be twice as large.\n"
+			print "    'sample rate' == The number of samples per second of audio.  A higher\n"
+			print "                     sampe rate translates to a greater available bandwidth\n"
+			print "                     for the audio signal.\n"
+			print "    'bit-depth == The number of bits in each audio sample.  Higher bit-depth\n"
+			print "                  means more precise amplitude values, assuming ideal DAC\n"
+			print "                  performance.\n\n", "  LOCAL COMMANDS:\n"
+			print "  --------------\n", "    z   --->  Print (this) info\n"
+			print "    x   --->  Abort program\n\n"
+			self.print_prompt
+			return -1
+		elsif @command == 'z' and @ui_section == 'melody_creation'
+			print "\nMELODY CREATION:\n\n"
+			print "Compose the melody to be written to #{@filename} by entering information\n"
+			print "for each successive note.  EXAMPLE:\n\n"
+			print "  Note: a#                <-------- Writes an A-sharp in the current octave...\n"
+			print "   Its duration: 1/8      <-------- ...for an 'eighth note' duration.\n"
+			print "  Note: cb                <-------- Writes a C-flat in the current octave...\n"
+			print "   Its duration: 1        <-------- ...for a 'whole note' duration.\n\n"
+			print "  LOCAL COMMANDS:\n", "  --------------\n", "    +   --->  Go up an octave\n"
+			print "    -   --->  Go down an octave\n", "    w   --->  Write the file\n"
+			print "    z   --->  Print (this) info\n", "    x   --->  Abort program\n\n"
+			self.print_prompt
+			return -1
+		elsif @command == '+' and @ui_section == 'melody_creation'
+			if @octave == 5
+				puts "Already at highest octave"
+			else
+				@octave += 1
+				puts "OCTAVE = #{@octave}"
+			end
+			self.print_prompt
+			return -1
+		elsif @command == '-' and @ui_section == 'melody_creation'
+			if @octave == 2
+				puts "Already at lowest octave"
+			else
+				@octave -= 1
+				puts "OCTAVE = #{@octave}"
+			end
+			self.print_prompt
 			return -1
 		elsif @command == 'x'
 			puts "PROGRAM ABORTED"
-			exit()
+			exit
 		else
 			return @command
 		end
 	end
 
-	def self.initialize_with_user_input()
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+# |                       ...END INTERNAL METHODS                         |
+# ------------------------------------------------------------------------
+
+	# this method prompts user for .wav file parameter info and initializes
+	# a Wav object with those values
+	def self.initialize_with_user_input
+		# ----------------------  COLLECT USER INPUT  ----------------------
+		@ui_section = 'init'
 		# print program info
 		puts "\n\t  ---------------------------------------------------"
 		puts "\t  |               ---- MAKE WAV ----                |"
 		puts "\t  ---------------------------------------------------\n"
 		puts "type 'z' and hit RETURN for info"
-		puts "type 'x' and hit RETURN to abort program\n"
+		puts "type 'x' and hit RETURN to abort program\n\n"
 		# prompt for timbre
-		puts "Choose timbre for wavetable:"
-		puts "  1) Sine wave"
-		puts "  2) Square wave"
-		puts "  3) Custom timbre"
+		@promptParameter = 'timbre'; self.print_prompt
 		# command processing loop...
 		while @loop_set do
-			@command = self.prompt_and_process()
+			@command = self.process_local_commands
 			if @command == -1
 				next
 			else
@@ -495,20 +593,19 @@ class ProgramInit
 					puts "Creating square wave..."
 					WaveTable.square
 				elsif @command.to_i == 3
-					WaveTable.sine
 					WaveTable.custom
 				else
-					puts "\tERROR: Please enter 1, 2, or 3"
-					@loop_set = 1
+					print "\tERROR: Please enter 1, 2, or 3\n", '>> '
+					redo
 				end
 			end
 		end
 		# prompt for file name
-		puts "What do you want to call the .wav file? (must end with '.wav')"
+		@promptParameter = 'filename'; self.print_prompt
 		# command processing loop...
 		@loop_set = true
 		while @loop_set do
-			@command = self.prompt_and_process()
+			@command = self.process_local_commands
 			if @command == -1
 				next
 			else
@@ -517,13 +614,11 @@ class ProgramInit
 			end
 		end
 		# prompt for number of channels
-		puts "Will #{@filename} be mono or stereo?"
-		puts "  1) Mono"
-		puts "  2) Stereo"
+		@promptParameter = 'numChannels'; self.print_prompt
 		# command processing loop...
 		@loop_set = true
 		while @loop_set do
-			@command = self.prompt_and_process()
+			@command = self.process_local_commands
 			if @command == -1
 				next
 			else
@@ -531,21 +626,17 @@ class ProgramInit
 				if @command.to_i == 1 || @command.to_i == 2
 					@numChannels = @command.to_i
 				else
-					puts "\tERROR: Please enter 1 or 2"
-					@loop_set = 1
+					print "\tERROR: Please enter 1 or 2\n", '>> '
+					redo
 				end
 			end
 		end
 		# prompt for sample rate
-		puts "Choose sample rate:"
-		puts "  1) 22050 Hz"
-		puts "  2) 32000 Hz"
-		puts "  3) 44100 Hz"
-		puts "  4) 48000 Hz"
+		@promptParameter = 'sampleRate'; self.print_prompt
 		# command processing loop...
 		@loop_set = true
 		while @loop_set do
-			@command = self.prompt_and_process()
+			@command = self.process_local_commands
 			if @command == -1
 				next
 			else
@@ -559,19 +650,17 @@ class ProgramInit
 				elsif @command.to_i == 4
 					@sampleRate = 48000
 				else
-					puts "\tERROR: Please enter 1, 2, 3, or 4"
-					@loop_set = 1
+					print "\tERROR: Please enter 1, 2, 3, or 4\n", '>> '
+					redo
 				end
 			end
 		end
 		# prompt for bit depth
-		puts "Choose sample bit-depth:"
-		puts "  1) 16-bit"
-		puts "  2) 32-bit"
+		@promptParameter = 'bitsPerSample'; self.print_prompt
 		# command processing loop...
 		@loop_set = true
 		while @loop_set do
-			@command = self.prompt_and_process()
+			@command = self.process_local_commands
 			if @command == -1
 				next
 			else
@@ -581,31 +670,164 @@ class ProgramInit
 				elsif @command.to_i == 2
 					@bitsPerSample = 32
 				else
-					puts "\tERROR: Please enter 1 or 2"
-					@loop_set = 1
+					print "\tERROR: Please enter 1 or 2\n", '>> '
+					redo
 				end
 			end
 		end
-		# initialize a Wav object with user input
-		puts "CREATING #{Dir.pwd()}/#{@filename}  PLEASE WAIT..."
+		# -----------  INITIALIZE A WAV OBJECT WITH USER INPUT  ------------
 		return Wav.new(@filename, @numChannels, @sampleRate, @bitsPerSample)
+	end
+
+	# This method prompts the user to create a melody,
+	# then writes the melody to file.
+	def self.create_melody(initialized_wav)
+		# ----------------------  COLLECT USER INPUT  ----------------------
+		@ui_section = 'melody_creation'
+		# array of 'base pitches' from which to calculate pitch
+		baseHZ = [27.5, 29.14, 30.87, 32.7, 34.65, 36.71, 38.89, 41.2,
+    		43.65, 46.25, 49.0, 51.91]
+    	tempo = nil # holds tempo value
+    	pitch, duration = nil, nil # temporary holders for pitch incrementer and duration
+		# arrays in which to put melody data
+		pitch_array, duration_array = [], []
+
+		# print info to terminal
+		print "\n\t\t ---- WRITE A MELODY ----\n\n"
+		print "type '+' and hit RETURN to go up an octave\n"
+		print "type '-' and hit RETURN to go down an octave\n"
+		print "type 'w' and hit RETURN to synthesize melody\n"
+		print "type 'z' and hit RETURN for melody creation info\n"
+		print "type 'x' and hit RETURN to abort program\n\n"
+		# prompt for tempo
+		@promptParameter = 'tempo'; self.print_prompt
+		# command processing loop...
+		@loop_set = true
+		while @loop_set do
+			@command = self.process_local_commands
+			if @command == -1
+				next
+			else
+				if @command.to_i > 400 or @command.to_i < 40
+					print "\tERROR: Tempo must be an integer 40 <= X <= 400\n", '>> '
+					redo
+				else
+					tempo = @command.to_i
+					@loop_set = false
+				end
+			end
+		end
+		# CREATE MELODY:
+		puts "\nCURRENT OCTAVE = 3"
+		puts "--- Write the melody ---"
+		until @write_melody 
+			# prompt for note
+			@promptParameter = 'note'; self.print_prompt
+			# command processing loop...
+			@loop_set = true
+			while @loop_set do
+				@command = self.process_local_commands
+				if @command == -1
+					next
+				else
+					@loop_set = false
+					if @command == 'a'
+						pitch = (baseHZ[0] * (2 ** @octave).to_f)/ 110.to_f
+					elsif @command == 'a#' or @command == 'bb'
+						pitch = (baseHZ[1] * (2 ** @octave).to_f)/ 110.to_f
+					elsif @command == 'b' or @command == 'cb'
+						pitch = (baseHZ[2] * (2 ** @octave).to_f)/ 110.to_f
+					elsif @command == 'c' or @command == 'b#'
+						pitch = (baseHZ[3] * (2 ** @octave).to_f)/ 110.to_f
+					elsif @command == 'c#' or @command == 'db'
+						pitch = (baseHZ[4] * (2 ** @octave).to_f)/ 110.to_f
+					elsif @command == 'd'
+						pitch = (baseHZ[5] * (2 ** @octave).to_f)/ 110.to_f
+					elsif @command == 'd#' or @command == 'eb'
+						pitch = (baseHZ[6] * (2 ** @octave).to_f)/ 110.to_f
+					elsif @command == 'e' or @command == 'fb'
+						pitch = (baseHZ[7] * (2 ** @octave).to_f)/ 110.to_f
+					elsif @command == 'f' or @command == 'e#'
+						pitch = (baseHZ[8] * (2 ** @octave).to_f)/ 110.to_f
+					elsif @command == 'f#' or @command == 'gb'
+						pitch = (baseHZ[9] * (2 ** @octave).to_f)/ 110.to_f
+					elsif @command == 'g'
+						pitch = (baseHZ[10] * (2 ** @octave).to_f)/ 110.to_f
+					elsif @command == 'g#'
+						pitch = (baseHZ[11] * (2 ** @octave).to_f)/ 110.to_f
+					elsif @command == 'w'
+						@write_melody = true
+						break
+					else
+						puts "\tERROR: Please enter a note name (enter 'z' for an example)"
+						print 'Try again: '
+						redo
+					end
+					# add pitch to pitch_array
+					pitch_array.push(pitch)
+				end
+			end
+			# if command 'w' is received, break from 'melody creation' loop
+			if @write_melody
+				break
+			end
+			# prompt for duration
+			@promptParameter = 'duration'; self.print_prompt
+			# command processing loop...
+			@loop_set = true
+			while @loop_set and !@write_melody do
+				@command = self.process_local_commands
+				if @command == -1
+					next
+				else
+					@loop_set = false
+					if @command == '1'
+						duration = ((60.to_f / tempo.to_f) * 1000.to_f) * 4.to_f
+					elsif @command == '1/2'
+						duration = ((60.to_f / tempo.to_f) * 1000.to_f) * 2.to_f
+					elsif @command == '1/4'
+						duration = (60.to_f / tempo.to_f) * 1000.to_f
+					elsif @command == '1/8'
+						duration = ((60.to_f / tempo.to_f) * 1000.to_f) / 2.to_f
+					elsif @command == '1/16'
+						duration = ((60.to_f / tempo.to_f) * 1000.to_f) / 4.to_f
+					elsif @command == '1/32'
+						duration = ((60.to_f / tempo.to_f) * 1000.to_f) / 8.to_f
+					elsif @command == 'w'
+						@write_melody = true; duration = 0.0
+						break
+					else
+						puts "\tERROR: Please enter 1, 1/2, 1/4, 1/8, 1/16, or 1/32"
+						print ' Try again: '
+						redo
+					end
+					# add duration to duration_array
+					duration_array.push(duration.round)
+				end
+			end
+		end
+		# -----------------------  WRITE THE FILE  -------------------------
+		puts "\nCREATING #{Dir.pwd()}/#{@filename} PLEASE WAIT...\n"
+		# write the RIFF chunk header for the file
+		initialized_wav.write_wav_header
+		# for loop that writes melody
+		for i in (0...pitch_array.length)
+			# create a new dataBlock for each note
+			initialized_wav.compose_new_dataBlock(pitch_array[i])
+			# then write the dataBlock for the note's duration value (in miliseconds)
+			initialized_wav.write_dataBlock_to_file(duration_array[i])
+		end
+		# adjust the subchunk size parameters in the RIFF header
+		initialized_wav.finalize_wav_header
+		puts "...FINISHED\n"
 	end
 end
 
 
 # ------------------------------------------------------------------------
-# |                          -- MAIN --                                  |
+# |                           -- MAIN --                                  |
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
-# initialize the program with user input prompts
-wave = ProgramInit.initialize_with_user_input
-# write the RIFF header info to the file
-wave.write_wav_header
-# create a one-period block of WAV data, using wavetable, that can be
-# repeatedly written to the file (much faster than calculating each sample
-# from it's floating point value)
-wave.compose_new_dataBlock(2.0)
-# repeatedly write the data block to the file until 10 seconds of sound
-# is recorded
-wave.write_dataBlock_to_file(10)
-# adjust the block-size parameters in the RIFF header; .wav file is now complete
-wave.finalize_wav_header
+# initialize the program with user input
+wave = UserInterface.initialize_with_user_input
+# write a melody to file with user input
+UserInterface.create_melody(wave) 

@@ -11,10 +11,8 @@ audio player (i.e. iTunes).
 
 CURRENT CAPABILITIES
 
-Right now the program provides the user with options for timbre, number of
-channels, sample rate, and bit-depth, and then writes a sound that plays at
-~110 Hz for 10 seconds based on those parameters.  It does not allow the user
-to set note duration or pitch, but I will be adding those capabilities soon.
+The program first provides the user with options for timbre, number of
+channels, sample rate, and bit-depth, after which the user is prompted to write
+a melody.  The program then writes a .wav file that plays this melody.
 
-NOTE:  The first half second or so of the file contains distortion,
-       which is undesirable and puzzling.  I'm trying to fix this.
+                      MORE INFO COMMING SOON...
