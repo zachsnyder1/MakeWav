@@ -6,13 +6,81 @@ OVERVIEW
 This is a program that writes a .wav file (following the RIFF specification)
 and allows you to fill the file with audio data created through wavetable
 synthesis.  After it is created, the file should be playable by any standard
-audio player (i.e. iTunes).
+audio player (e.g. iTunes).
+
+The program's user interface is split into three sections:
+
+ 1) Initialization => User is prompted to set the .wav file parameters.
+ 2) Custom Timbre Synthesis => User is prompted to create a custom
+    ...(optional)              waveform for use in waveteble synthesis.
+ 3) Melody Creation => User is prompted to create the melody that will
+                       be written into the .wav file.
 
 
-CURRENT CAPABILITIES
+INITIALIZATION
 
-The program first provides the user with options for timbre, number of
-channels, sample rate, and bit-depth, after which the user is prompted to write
-a melody.  The program then writes a .wav file that plays this melody.
+To write a .wav file, certain parameters need to be set.  The user is prompted
+with options for each parameter.  (No options are given for 'filename', because
+there would be an infinite number.)
 
-                      MORE INFO COMMING SOON...
+   WAV FILE PARAMETERS:
+   -------------------
+    'timbre' => The waveform that is used for wavetable synthesis.
+    'filename' => The name of the WAV file that will be created.  This
+                  MUST end in the '.wav' file extension.
+    'number of channels' => One channel creates a mono file.  Two channels
+                            creates a stereo file.  These are functionally
+                            equivalent if both channels contain the same info,
+                            but the stereo file will be twice as large.
+    'sample rate' => The number of samples per second of audio.  A higher
+                     sampe rate translates to a greater available bandwidth
+                     for the audio signal.  44100 Hz is recommended.
+    'bit-depth => The number of bits in each audio sample.  Higher bit-depth
+                  means more precise amplitude values, assuming ideal DAC
+                  performance.
+
+   LOCAL COMMANDS:
+   --------------
+     z   --->  Print info about program
+     x   --->  Abort program
+
+
+CUSTOM TIMBRE SYNTHESIS (optional; adapted from Jamboard project)
+
+The 'synthesize custom timbre' function allows you to synthesize a new sound by
+setting the relative amplitude for each harmonic, up to the 31st harmonic.
+Relative amplitudes are values between 0 and 100.  Enter a value for each
+harmonic as you are promted.  A value of 0 means the harmonic is not included
+in the sound.  When you have entered a value for the highest harmonic that you
+want to include, enter 's' (without quotations), and hit RETURN, to synthesize
+the sound.
+
+   LOCAL COMMANDS:
+   --------------
+     z   --->  Print custom synthesis info
+     s   --->  Synthesize waveform
+     x   --->  Abort program
+
+
+MELODY CREATION
+
+The user is prompted to create a melody by entering each successive note and
+its duration.  Note values are the note letter (lower case), optionally
+followed by either '#' for sharp or 'b' for flat.  When a note letter is
+entered, the pitch that will be written depends on what the 'current octave'
+is.  Each octave ranges from A to G#.  The program always starts in OCTAVE = 3,
+but the '+' and '-' commands increment and decrement the octave.  Here's an
+example of entering notes into the melody:
+
+  Note: a#                <-------- Writes an A-sharp in the current octave...
+   Its duration: 1/8      <-------- ...for an 'eighth note' duration.
+  Note: cb                <-------- Writes a C-flat in the current octave...
+   Its duration: 1        <-------- ...for a 'whole note' duration
+
+   LOCAL COMMANDS:
+   --------------
+     +   --->  Go up an octave
+     -   --->  Go down an octave
+     w   --->  Write the file
+     z   --->  Print melody creation info
+     x   --->  Abort program

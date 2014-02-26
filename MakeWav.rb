@@ -408,6 +408,8 @@ class WaveTable
 				redo
 			elsif command_check == 's'
 				x = 32
+				puts "\t         ---------- end of function ----------\n\n"
+				puts "Creating custom wave...\n"
 				break
 			elsif command_check.to_i > 100
 				print "\n\tERROR: Amplitude needs to be 0<=X<=100\n\n"
@@ -483,10 +485,10 @@ class UserInterface
 			puts "Choose sample bit-depth for #{@filename}:"
 			puts "  1) 16-bit", "  2) 32-bit"
 		elsif @promptParameter == 'note'
-			print "Note: "
+			print " Note: "
 			return
 		elsif @promptParameter == 'duration'
-			print " Its duration: "
+			print "  Its duration: "
 			return
 		elsif @promptParameter == 'tempo'
 			puts "Enter tempo in beats/min:"
@@ -506,17 +508,17 @@ class UserInterface
 			print "\nsynthesis.  After it is created, the file should be playable by any"
 			print "\nstandard audio player (e.g. iTunes)."
 			print "\n\n  WAV FILE PARAMETERS:\n  --------------------\n"
-			print "    'timbre' == The waveform that is used for wavetable synthesis.\n"
-			print "    'filename' == The name of the WAV file that will be created.  This\n"
+			print "    'timbre' => The waveform that is used for wavetable synthesis.\n"
+			print "    'filename' => The name of the WAV file that will be created.  This\n"
 			print "                MUST end in the '.wav' file extension.\n"
-			print "    'number of channels' == One channel creates a mono file.  Two channels\n"
+			print "    'number of channels' => One channel creates a mono file.  Two channels\n"
 			print "                            creates a stereo file.  These are functionally\n"
 			print "                            equivalent if both channels contain the same info,\n"
 			print "                            but the stereo file will be twice as large.\n"
-			print "    'sample rate' == The number of samples per second of audio.  A higher\n"
+			print "    'sample rate' => The number of samples per second of audio.  A higher\n"
 			print "                     sampe rate translates to a greater available bandwidth\n"
-			print "                     for the audio signal.\n"
-			print "    'bit-depth == The number of bits in each audio sample.  Higher bit-depth\n"
+			print "                     for the audio signal.  44100 Hz is recommended.\n"
+			print "    'bit-depth => The number of bits in each audio sample.  Higher bit-depth\n"
 			print "                  means more precise amplitude values, assuming ideal DAC\n"
 			print "                  performance.\n\n", "  LOCAL COMMANDS:\n"
 			print "  --------------\n", "    z   --->  Print (this) info\n"
@@ -718,8 +720,7 @@ class UserInterface
 			end
 		end
 		# CREATE MELODY:
-		puts "\nCURRENT OCTAVE = 3"
-		puts "--- Write the melody ---"
+		puts "\nWrite the melody:", "----------------", "CURRENT OCTAVE = 3"
 		until @write_melody 
 			# prompt for note
 			@promptParameter = 'note'; self.print_prompt
@@ -731,6 +732,7 @@ class UserInterface
 					next
 				else
 					@loop_set = false
+					# calculate pitch incrementer, based on note name
 					if @command == 'a'
 						pitch = (baseHZ[0] * (2 ** @octave).to_f)/ 110.to_f
 					elsif @command == 'a#' or @command == 'bb'
@@ -756,11 +758,12 @@ class UserInterface
 					elsif @command == 'g#'
 						pitch = (baseHZ[11] * (2 ** @octave).to_f)/ 110.to_f
 					elsif @command == 'w'
+						puts "\t      -------- end of function --------\n"
 						@write_melody = true
 						break
 					else
 						puts "\tERROR: Please enter a note name (enter 'z' for an example)"
-						print 'Try again: '
+						print ' Try again: '
 						redo
 					end
 					# add pitch to pitch_array
@@ -794,11 +797,12 @@ class UserInterface
 					elsif @command == '1/32'
 						duration = ((60.to_f / tempo.to_f) * 1000.to_f) / 8.to_f
 					elsif @command == 'w'
+						puts "\t      -------- end of function --------\n"
 						@write_melody = true; duration = 0.0
 						break
 					else
 						puts "\tERROR: Please enter 1, 1/2, 1/4, 1/8, 1/16, or 1/32"
-						print ' Try again: '
+						print '  Try again: '
 						redo
 					end
 					# add duration to duration_array
