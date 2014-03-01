@@ -32,9 +32,6 @@ class Wav
 		@file_offset = 0
 		# an array in which to put each byte
 		@byte1, @byte2, @byte3, @byte4 = [], [], [], []
-		# a 4-char string for each nibble
-		@nibble1, @nibble2, @nibble3, @nibble4 = 'xxxx', 'xxxx', 'xxxx', 'xxxx'
-		@nibble5, @nibble6, @nibble7, @nibble8 = 'xxxx', 'xxxx', 'xxxx', 'xxxx'
 		# initialize an array for the encoded data, and associated variables
 		@dataBlock_array = Array.new()
 		@dataBlock_joined = nil
@@ -68,25 +65,11 @@ class Wav
 		15.downto(8) do |x| @byte1.push(int[x]) end
 		7.downto(0) do |x| @byte2.push(int[x]) end
 
-		# split bytes into nibbles
-		for i in (0...4)
-			@nibble1[i] = (@byte1[i+4]).to_s
-		end
-		for i in (0...4)
-			@nibble2[i] = (@byte1[i]).to_s
-		end
-		for i in (0...4)
-			@nibble3[i] = (@byte2[i+4]).to_s
-		end
-		for i in (0...4)
-			@nibble4[i] = (@byte2[i]).to_s
-		end
-
-		# order the nibbles in little-endian fashion, join
-		correct_endianness_binary = [@nibble4, @nibble3, @nibble2, @nibble1]
+		# order the bytes in little-endian fashion, join
+		correct_endianness_binary = [@byte2, @byte1]
 
 		if mode == 'file'
-			# join and pack nibbles
+			# join and pack bytes
 			binary_to_write = [correct_endianness_binary.join].pack("B*")
 			# write binary to file with correct offset
 			File.write(@filename, binary_to_write, @file_offset)
@@ -128,39 +111,10 @@ class Wav
 		15.downto(8) do |x| @byte3.push(int[x]) end
 		7.downto(0) do |x| @byte4.push(int[x]) end
 
-		# split bytes into nibbles (which are labeled in semi-correct endianness)
-		# i.e. nibbles are switched in each byte, but bytes are in same order as
-		# before
-		for i in (0...4)
-			@nibble1[i] = (@byte1[i+4]).to_s
-		end
-		for i in (0...4)
-			@nibble2[i] = (@byte1[i]).to_s
-		end
-		for i in (0...4)
-			@nibble3[i] = (@byte2[i+4]).to_s
-		end
-		for i in (0...4)
-			@nibble4[i] = (@byte2[i]).to_s
-		end
-		for i in (0...4)
-			@nibble5[i] = (@byte3[i+4]).to_s
-		end
-		for i in (0...4)
-			@nibble6[i] = (@byte3[i]).to_s
-		end
-		for i in (0...4)
-			@nibble7[i] = (@byte4[i+4]).to_s
-		end
-		for i in (0...4)
-			@nibble8[i] = (@byte4[i]).to_s
-		end
-
-		# order the nibbles in little-endian fashion (reverse order), join
-		correct_endianness_binary = [@nibble8, @nibble7, @nibble6, @nibble5,
-			@nibble4, @nibble3, @nibble2, @nibble1]
+		# order the bytes in little-endian fashion (reverse order), join
+		correct_endianness_binary = [@byte4, @byte3, @byte2, @byte1]
 		if mode == 'file'
-			# join and pack nibbles
+			# join and pack bytes
 			binary_to_write = [correct_endianness_binary.join].pack("B*")
 			# write binary to file with correct offset
 			File.write(@filename, binary_to_write, byte_offset)
